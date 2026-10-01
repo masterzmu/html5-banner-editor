@@ -125,6 +125,7 @@ body {
   margin: 0 auto; border-radius: 4px;
 }
 .image-upload-area input { display: none; }
+.bg-hint { font-size: 11px; color: var(--text2); margin-top: 4px; font-style: italic; line-height: 1.3; }
 
 /* ── Right panel (preview) ── */
 .preview-panel {
@@ -245,7 +246,7 @@ body {
           </div>
         </div>
         <div class="field">
-          <label>Lakahuomautus</label>
+          <label>Lakhuomautus</label>
           <input type="text" id="fLegal" value="Kuvitteellinen demo" oninput="updatePreview()">
         </div>
       </div>
@@ -331,6 +332,7 @@ body {
             <button class="btn" style="font-size:11px;padding:4px 10px" onclick="loadSampleImage()">Käytä esimerkkiä</button>
             <button class="btn" style="font-size:11px;padding:4px 10px" onclick="removeImage()">Poista kuva</button>
           </div>
+          <div class="bg-hint">Lataa 1:1-neliökuva — cropataan cover-tilassa kaikkiin kokoihin</div>
         </div>
       </div>
     </div>
@@ -447,7 +449,6 @@ function loadSampleImage() {
         let img = area.querySelector('img');
         if (!img) { img = document.createElement('img'); area.appendChild(img); }
         img.src = bgImageDataUri;
-        // switch bg type to image if control exists
         const sel = document.getElementById('fBgType');
         if (sel) { sel.value = 'image'; if (typeof onBgTypeChange === 'function') onBgTypeChange(); }
         updatePreview();
@@ -479,6 +480,153 @@ function getBgState() {
   };
 }
 
+/* ═══════════════════════════════════════════════════════════
+   SIZE-ADAPTIVE LAYOUT SYSTEM
+   Uses data-size="WxH" on #banner for 6 layout modes.
+   Modes: MPU(300x250/300x600), LB(728x90/970x250), SKY(160x600), MOBILE(320x50)
+   ═══════════════════════════════════════════════════════════ */
+function getAdCSS() {
+  return `
+/* ── Size-adaptive content layout ── */
+#banner { display:block; width:${bannerW}px; height:${bannerH}px; overflow:hidden; position:relative; text-decoration:none; color:#fff; font-family:system-ui,-apple-system,"Segoe UI",sans-serif; }
+
+/* ── Background image (cover-crop to fill, no distortion) ── */
+.bg-img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center; z-index:0; }
+.bg-solid { position:absolute; inset:0; z-index:0; }
+.bg-gradient { position:absolute; inset:0; z-index:0; }
+
+/* ── Drift animation on bg image (only on >60px height) ── */
+@keyframes drift { from { transform: scale(1.04); } to { transform: scale(1.08); } }
+.bg-img { transform: scale(1); }
+.size-728x90 .bg-img,
+.size-320x50 .bg-img { animation: none !important; }
+
+/* ── Scrim (gradient overlay for text readability) ── */
+.scrim { position:absolute; inset:0; z-index:1; pointer-events:none; }
+
+/* ── Content — default (MPU tall): vertical stack ── */
+.content { position:absolute; inset:0; z-index:2; display:flex; flex-direction:column; overflow:hidden; }
+.brand { display:flex; align-items:center; gap:7px; flex-shrink:0; }
+.logo { width:20px; height:20px; border-radius:50%; background:radial-gradient(circle at 35% 35%,#fff6c8,#ffcc4d 55%,#e8a020); box-shadow:0 0 10px rgba(255,200,80,.45); flex-shrink:0; }
+.brand-name { font-size:11px; font-weight:700; letter-spacing:.04em; text-shadow:0 1px 4px rgba(0,0,0,.55); white-space:nowrap; }
+.center-stack { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; gap:6px; min-height:0; overflow:hidden; }
+h1 { font-size:24px; line-height:1.05; font-weight:800; text-shadow:0 2px 10px rgba(0,0,0,.55); }
+h1 span { display:block; font-size:14px; font-weight:700; color:VAR_ACCENT; margin-top:3px; }
+.perks { font-size:9px; letter-spacing:.02em; text-shadow:0 1px 4px rgba(0,0,0,.5); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+.bottom { display:flex; align-items:center; justify-content:space-between; gap:6px; flex-shrink:0; width:100%; }
+.price { display:flex; flex-direction:column; }
+.price .from { font-size:8px; letter-spacing:.14em; text-transform:uppercase; opacity:.85; }
+.price .amt { font-size:20px; font-weight:800; color:VAR_ACCENT; line-height:1.1; text-shadow:0 2px 8px rgba(0,0,0,.5); }
+.cta { background:VAR_CTA_BG; color:VAR_CTA_FG; font-weight:800; font-size:11px; padding:8px 11px; border-radius:999px; white-space:nowrap; box-shadow:0 6px 16px rgba(0,0,0,.35); }
+.legal { position:absolute; z-index:3; font-size:6px; text-align:center; pointer-events:none; }
+
+/* ── MPU mode (300x250): vertical stack, classic ── */
+.size-300x250 .content { padding:10px 12px 22px; }
+.size-300x250 .center-stack { min-height:70px; }
+.size-300x250 .legal { bottom:2px; left:8px; right:8px; }
+
+/* ── Half-page (300x600): vertical stack, more breathing room ── */
+.size-300x600 .content { padding:14px 16px 30px; }
+.size-300x600 h1 { font-size:28px; }
+.size-300x600 h1 span { font-size:16px; }
+.size-300x600 .perks { font-size:10px; }
+.size-300x600 .price .amt { font-size:24px; }
+.size-300x600 .legal { bottom:3px; left:8px; right:8px; }
+
+/* ── Leaderboard (728x90): horizontal layout ── */
+.size-728x90 .content { flex-direction:row; align-items:center; padding:6px 12px; gap:10px; }
+.size-728x90 .brand { flex-shrink:0; }
+.size-728x90 .brand-name { font-size:10px; }
+.size-728x90 .center-stack { flex-direction:row; gap:8px; align-items:center; justify-content:flex-start; flex:1; min-width:0; }
+.size-728x90 h1 { font-size:16px; margin:0; }
+.size-728x90 h1 span { display:inline; font-size:11px; margin-top:0; margin-left:4px; }
+.size-728x90 .perks { display:none; }
+.size-728x90 .bottom { flex-shrink:0; flex-direction:column; justify-content:center; gap:0; align-items:flex-end; }
+.size-728x90 .price { flex-direction:row; gap:4px; align-items:baseline; }
+.size-728x90 .price .from { font-size:7px; margin-right:2px; }
+.size-728x90 .price .amt { font-size:14px; }
+.size-728x90 .cta { font-size:10px; padding:5px 9px; }
+.size-728x90 .legal { bottom:1px; left:10px; right:10px; font-size:5px; }
+
+/* ── Billboard (970x250): horizontal, room to spread ── */
+.size-970x250 .content { flex-direction:row; align-items:center; justify-content:space-between; padding:16px 24px; gap:20px; }
+.size-970x250 .brand { flex-shrink:0; }
+.size-970x250 .brand-name { font-size:13px; }
+.size-970x250 .center-stack { flex-direction:row; align-items:center; justify-content:flex-start; gap:16px; min-width:0; flex:1; }
+.size-970x250 h1 { font-size:36px; margin:0; }
+.size-970x250 h1 span { display:inline; font-size:20px; margin-top:0; margin-left:8px; }
+.size-970x250 .perks { display:inline-block; font-size:12px; flex-shrink:0; }
+.size-970x250 .bottom { flex-shrink:0; flex-direction:column; justify-content:center; gap:4px; align-items:flex-end; }
+.size-970x250 .price .from { font-size:9px; }
+.size-970x250 .price .amt { font-size:28px; }
+.size-970x250 .cta { font-size:13px; padding:10px 16px; }
+.size-970x250 .legal { bottom:4px; left:12px; right:12px; font-size:7px; }
+
+/* ── Skyscraper (160x600): narrow vertical stack ── */
+.size-160x600 .content { padding:10px 8px 20px; }
+.size-160x600 .brand { justify-content:center; }
+.size-160x600 .brand-name { font-size:9px; }
+.size-160x600 .center-stack { min-height:180px; gap:4px; }
+.size-160x600 h1 { font-size:15px; }
+.size-160x600 h1 span { font-size:10px; }
+.size-160x600 .perks { font-size:7px; }
+.size-160x600 .bottom { flex-direction:column; align-items:stretch; justify-content:center; gap:4px; }
+.size-160x600 .price { flex-direction:row; justify-content:center; gap:4px; align-items:baseline; }
+.size-160x600 .price .from { font-size:6px; margin-right:2px; }
+.size-160x600 .price .amt { font-size:14px; }
+.size-160x600 .cta { font-size:10px; padding:8px 0; text-align:center; width:100%; border-radius:6px; }
+.size-160x600 .legal { bottom:2px; left:4px; right:4px; font-size:5px; }
+
+/* ── Mobile banner (320x50): ultra-compact horizontal ── */
+.size-320x50 .content { flex-direction:row; align-items:center; padding:3px 6px; gap:4px; }
+.size-320x50 .brand { flex-shrink:0; }
+.size-320x50 .logo { width:14px; height:14px; }
+.size-320x50 .brand-name { font-size:8px; }
+.size-320x50 .center-stack { flex-direction:row; align-items:center; gap:4px; flex:1; min-width:0; }
+.size-320x50 h1 { font-size:11px; margin:0; line-height:1.1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.size-320x50 h1 span { display:inline; font-size:8px; margin-top:0; margin-left:2px; max-width:60px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.size-320x50 .perks { display:none !important; }
+.size-320x50 .bottom { flex-shrink:0; flex-direction:column; justify-content:center; gap:0; align-items:flex-end; }
+.size-320x50 .price .from { display:none; }
+.size-320x50 .price .amt { font-size:10px; }
+.size-320x50 .cta { font-size:8px; padding:3px 6px; border-radius:10px; }
+.size-320x50 .legal { display:none !important; }
+
+/* ── Animations (staggered entrance per element) ── */
+.brand { animation:seqBrand VAR_DUR ease-in-out infinite; }
+.logo { animation:logoGlow VAR_DUR ease-in-out infinite; }
+h1 { animation:seqTitle VAR_DUR ease-in-out infinite; }
+h1 span { animation:seqSub VAR_DUR ease-in-out infinite; }
+.perks { animation:seqPerks VAR_DUR ease-in-out infinite; }
+.price { animation:seqPrice VAR_DUR ease-in-out infinite; }
+.cta { animation:seqCta VAR_DUR ease-in-out infinite; }
+.legal { animation:seqLegal VAR_DUR ease-in-out infinite; }
+
+@keyframes seqBrand { 0%{opacity:0;transform:translateY(-8px)} 6%{opacity:1;transform:none} 72%{opacity:1;transform:none} 86%{opacity:0;transform:translateY(-5px)} 100%{opacity:0;transform:translateY(-5px)} }
+@keyframes logoGlow { 0%,5%{transform:scale(.7);filter:brightness(.9)} 12%,70%{transform:scale(1);filter:brightness(1)} 78%,100%{transform:scale(.85);filter:brightness(.85)} }
+@keyframes seqTitle { 0%,4%{opacity:0;transform:translateY(14px)} 12%{opacity:1;transform:none} 70%{opacity:1;transform:none} 84%{opacity:0;transform:translateY(-7px)} 100%{opacity:0;transform:translateY(-7px)} }
+@keyframes seqSub { 0%,8%{opacity:0;transform:translateY(10px)} 16%{opacity:1;transform:none} 70%{opacity:1;transform:none} 84%{opacity:0;transform:translateY(-5px)} 100%{opacity:0;transform:translateY(-5px)} }
+@keyframes seqPerks { 0%,12%{opacity:0;transform:translateY(8px)} 20%{opacity:1;transform:none} 70%{opacity:1;transform:none} 84%{opacity:0;transform:translateY(-3px)} 100%{opacity:0;transform:translateY(-3px)} }
+@keyframes seqPrice { 0%,16%{opacity:0;transform:translateX(-12px)} 24%{opacity:1;transform:none} 40%,55%{opacity:1;transform:scale(1)} 48%{transform:scale(1.04)} 70%{opacity:1;transform:none} 84%{opacity:0;transform:translateX(-6px)} 100%{opacity:0;transform:translateX(-6px)} }
+@keyframes seqCta { 0%,20%{opacity:0;transform:translateX(12px) scale(.96)} 28%{opacity:1;transform:none} 36%,44%,52%,60%{transform:scale(1)} 40%,48%,56%{transform:scale(1.04)} 70%{opacity:1;transform:scale(1)} 84%{opacity:0;transform:translateX(6px)} 100%{opacity:0;transform:translateX(6px)} }
+@keyframes seqLegal { 0%,24%{opacity:0} 32%,70%{opacity:.55} 84%,100%{opacity:0} }
+
+/* ── Mobile (320x50): simplified animations ── */
+.size-320x50 .brand,
+.size-320x50 h1,
+.size-320x50 .bottom { animation-name: fadeSimple; }
+.size-320x50 .logo { animation: none; }
+@keyframes fadeSimple { 0%,10%{opacity:0} 18%{opacity:1} 70%{opacity:1} 84%{opacity:0} 100%{opacity:0} }
+
+/* ── Skyscraper (160x600): subtle animation ── */
+.size-160x600 .brand,
+.size-160x600 .center-stack { animation: fadeSimple 2s ease-in-out infinite; }
+.size-160x600 .bottom,
+.size-160x600 .legal { animation: fadeSimple 2s ease-in-out infinite; }
+.size-160x600 .logo { animation: none; }
+  `;
+}
+
 /* ─── Build ad HTML ─── */
 function buildAdHTML() {
   const brand = V('fBrand');
@@ -497,28 +645,120 @@ function buildAdHTML() {
   const animOn = document.getElementById('toggleAnim').classList.contains('active');
   const useScrim = document.getElementById('toggleScrim').classList.contains('active');
   const bg = getBgState();
-  const animClass = animOn ? '' : ' style="animation:none !important"';
-  const animOffCSS = animOn ? '' : `
-*{animation:none !important;opacity:1 !important;transform:none !important}
-  `;
+  const sizeKey = bannerW + 'x' + bannerH;
 
   // Background
-  let bgCSS = '';
+  let bgHTML = '';
   if (bg.type === 'color') {
-    bgCSS = 'background:' + bg.color1;
+    bgHTML = '<div class="bg-solid bg" style="background:' + bg.color1 + '"></div>';
   } else if (bg.type === 'gradient') {
-    bgCSS = 'background:linear-gradient(' + bg.gradDir + ',' + bg.grad1 + ',' + bg.grad2 + ')';
+    bgHTML = '<div class="bg-gradient bg" style="background:linear-gradient(' + bg.gradDir + ',' + bg.grad1 + ',' + bg.grad2 + ')"></div>';
   } else {
-    bgCSS = 'background:url(\'' + bg.imageUri + '\') center/cover no-repeat';
+    // Image: <img> with object-fit cover (1:1 crop, no distortion)
+    const drift = (bannerH > 60) ? ' style="animation:drift ' + dur + 's ease-in-out infinite"' : '';
+    bgHTML = '<img class="bg-img" src="' + bg.imageUri + '" alt=""' + drift + '>';
   }
 
   // Scrim
   let scrimHTML = '';
   if (useScrim) {
-    scrimHTML = '<div class="scrim" aria-hidden="true"></div>';
+    scrimHTML = '<div class="scrim" aria-hidden="true" style="background:linear-gradient(180deg,' + V('fScrimTop') + ' 0%,rgba(8,6,4,.2) 35%,' + V('fScrimBot') + ' 100%)"></div>';
   }
 
-  // Build complete HTML
+  // Animation toggle
+  const animOffCSS = animOn ? '' : `
+#banner *{animation:none !important;opacity:1 !important}
+.bg-img{animation:none !important}
+  `;
+
+  // Build size-specific content HTML
+  let contentHTML = '';
+  switch (sizeKey) {
+
+    case '300x250':
+      contentHTML = `
+<div class="brand"><div class="logo" aria-hidden="true"></div><div class="brand-name">${brand}</div></div>
+<div class="center-stack">
+  <h1>${headline}<span>${subtext}</span></h1>
+  <div class="perks">${perks}</div>
+</div>
+<div class="bottom">
+  <div class="price"><span class="from">${priceLabel}</span><span class="amt">${price}</span></div>
+  <div class="cta">${cta}</div>
+</div>`;
+      break;
+
+    case '300x600':
+      contentHTML = `
+<div class="brand"><div class="logo" aria-hidden="true"></div><div class="brand-name">${brand}</div></div>
+<div class="center-stack">
+  <h1>${headline}<span>${subtext}</span></h1>
+  <div class="perks">${perks}</div>
+</div>
+<div class="bottom">
+  <div class="price"><span class="from">${priceLabel}</span><span class="amt">${price}</span></div>
+  <div class="cta">${cta}</div>
+</div>`;
+      break;
+
+    case '728x90':
+      contentHTML = `
+<div class="brand"><div class="logo" aria-hidden="true"></div><div class="brand-name">${brand}</div></div>
+<div class="center-stack">
+  <h1>${headline}<span>${subtext}</span></h1>
+</div>
+<div class="bottom">
+  <div class="price"><span class="from">${priceLabel}</span><span class="amt">${price}</span></div>
+  <div class="cta">${cta}</div>
+</div>`;
+      break;
+
+    case '970x250':
+      contentHTML = `
+<div class="brand"><div class="logo" aria-hidden="true"></div><div class="brand-name">${brand}</div></div>
+<div class="center-stack">
+  <h1>${headline}<span>${subtext}</span></h1>
+  <div class="perks">${perks}</div>
+</div>
+<div class="bottom">
+  <div class="price"><span class="from">${priceLabel}</span><span class="amt">${price}</span></div>
+  <div class="cta">${cta}</div>
+</div>`;
+      break;
+
+    case '160x600':
+      contentHTML = `
+<div class="brand"><div class="logo" aria-hidden="true"></div><div class="brand-name">${brand}</div></div>
+<div class="center-stack">
+  <h1>${headline}<span>${subtext}</span></h1>
+  <div class="perks">${perks}</div>
+</div>
+<div class="bottom">
+  <div class="price"><span class="from">${priceLabel}</span><span class="amt">${price}</span></div>
+  <div class="cta">${cta}</div>
+</div>`;
+      break;
+
+    case '320x50':
+      contentHTML = `
+<div class="brand"><div class="logo" aria-hidden="true"></div><div class="brand-name">${brand}</div></div>
+<div class="center-stack">
+  <h1>${headline}${subtext ? '<span>' + subtext + '</span>' : ''}</h1>
+</div>
+<div class="bottom">
+  <div class="price"><span class="amt">${price}</span></div>
+  <div class="cta">${cta}</div>
+</div>`;
+      break;
+  }
+
+  // Replace CSS variables with actual values
+  const finalCSS = getAdCSS()
+    .replace(/VAR_ACCENT/g, accentColor)
+    .replace(/VAR_CTA_BG/g, ctaBg)
+    .replace(/VAR_CTA_FG/g, ctaFg)
+    .replace(/VAR_DUR/g, dur);
+
   return `<!DOCTYPE html>
 <html lang="fi">
 <head>
@@ -528,47 +768,16 @@ function buildAdHTML() {
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:${bannerW}px;height:${bannerH}px;overflow:hidden}
-#banner{display:block;width:${bannerW}px;height:${bannerH}px;overflow:hidden;position:relative;text-decoration:none;color:#fff;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;${bgCSS}}
-.bg{position:absolute;inset:0;z-index:0;${bg.type==='image'?'animation:drift '+dur+'s ease-in-out infinite':''}}
-${bg.type==='image'?'.bg{background:url(\''+bg.imageUri+'\') center/cover no-repeat}':''}
-@keyframes drift{from{transform:scale(1.04)}to{transform:scale(1.08)}}
-${scrimHTML}
-.content{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;padding:10px 12px 22px}
-.brand{display:flex;align-items:center;gap:7px;flex-shrink:0;animation:seqBrand ${dur}s ease-in-out infinite}
-.logo{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff6c8,#ffcc4d 55%,#e8a020);box-shadow:0 0 10px rgba(255,200,80,.45);flex-shrink:0;animation:logoGlow ${dur}s ease-in-out infinite}
-.brand-name{font-size:11px;font-weight:700;letter-spacing:.04em;text-shadow:0 1px 4px rgba(0,0,0,.55)}
-.center-stack{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:6px;min-height:0}
-h1{font-size:24px;line-height:1.05;font-weight:800;text-shadow:0 2px 10px rgba(0,0,0,.55);animation:seqTitle ${dur}s ease-in-out infinite}
-h1 span{display:block;font-size:14px;font-weight:700;color:${accentColor};margin-top:3px;animation:seqSub ${dur}s ease-in-out infinite}
-.perks{font-size:9px;letter-spacing:.02em;text-shadow:0 1px 4px rgba(0,0,0,.5);animation:seqPerks ${dur}s ease-in-out infinite}
-.bottom{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-shrink:0;width:100%}
-.price{display:flex;flex-direction:column;animation:seqPrice ${dur}s ease-in-out infinite}
-.price .from{font-size:8px;letter-spacing:.14em;text-transform:uppercase;opacity:.85}
-.price .amt{font-size:20px;font-weight:800;color:${accentColor};line-height:1.1;text-shadow:0 2px 8px rgba(0,0,0,.5)}
-.cta{background:${ctaBg};color:${ctaFg};font-weight:800;font-size:11px;padding:8px 11px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 16px rgba(0,0,0,.35);animation:seqCta ${dur}s ease-in-out infinite}
-.legal{position:absolute;left:8px;right:8px;bottom:2px;z-index:3;font-size:6px;text-align:center;pointer-events:none;animation:seqLegal ${dur}s ease-in-out infinite}
-@keyframes seqBrand{0%{opacity:0;transform:translateY(-8px)}6%{opacity:1;transform:none}72%{opacity:1;transform:none}86%{opacity:0;transform:translateY(-5px)}100%{opacity:0;transform:translateY(-5px)}}
-@keyframes logoGlow{0%,5%{transform:scale(.7);filter:brightness(.9)}12%,70%{transform:scale(1);filter:brightness(1)}78%,100%{transform:scale(.85);filter:brightness(.85)}}
-@keyframes seqTitle{0%,4%{opacity:0;transform:translateY(14px)}12%{opacity:1;transform:none}70%{opacity:1;transform:none}84%{opacity:0;transform:translateY(-7px)}100%{opacity:0;transform:translateY(-7px)}}
-@keyframes seqSub{0%,8%{opacity:0;transform:translateY(10px)}16%{opacity:1;transform:none}70%{opacity:1;transform:none}84%{opacity:0;transform:translateY(-5px)}100%{opacity:0;transform:translateY(-5px)}}
-@keyframes seqPerks{0%,12%{opacity:0;transform:translateY(8px)}20%{opacity:1;transform:none}70%{opacity:1;transform:none}84%{opacity:0;transform:translateY(-3px)}100%{opacity:0;transform:translateY(-3px)}}
-@keyframes seqPrice{0%,16%{opacity:0;transform:translateX(-12px)}24%{opacity:1;transform:none}40%,55%{opacity:1;transform:scale(1)}48%{transform:scale(1.04)}70%{opacity:1;transform:none}84%{opacity:0;transform:translateX(-6px)}100%{opacity:0;transform:translateX(-6px)}}
-@keyframes seqCta{0%,20%{opacity:0;transform:translateX(12px) scale(.96)}28%{opacity:1;transform:none}36%,44%,52%,60%{transform:scale(1)}40%,48%,56%{transform:scale(1.04)}70%{opacity:1;transform:scale(1)}84%{opacity:0;transform:translateX(6px)}100%{opacity:0;transform:translateX(6px)}}
-@keyframes seqLegal{0%,24%{opacity:0}32%,70%{opacity:.55}84%,100%{opacity:0}}
+${finalCSS}
 ${animOffCSS}
 </style>
 </head>
 <body>
-<a id="banner" href="${url}" target="_blank" rel="noopener">
-  <div class="bg" aria-hidden="true"></div>
+<a id="banner" class="size-${sizeKey}" data-size="${sizeKey}" href="${url}" target="_blank" rel="noopener">
+  ${bgHTML}
   ${scrimHTML}
   <div class="content">
-    <div class="brand"><div class="logo" aria-hidden="true"></div><div class="brand-name">${brand}</div></div>
-    <div class="center-stack">
-      <h1>${headline}<span>${subtext}</span></h1>
-      <div class="perks">${perks}</div>
-    </div>
-    <div class="bottom"><div class="price"><span class="from">${priceLabel}</span><span class="amt">${price}</span></div><div class="cta">${cta}</div></div>
+    ${contentHTML}
   </div>
   <div class="legal">${legal}</div>
 </a>
@@ -580,7 +789,6 @@ ${animOffCSS}
 function updatePreview() {
   const html = buildAdHTML();
   const container = document.getElementById('previewContainer');
-  // Use a sandboxed iframe for safe preview
   container.innerHTML = '';
   const iframe = document.createElement('iframe');
   iframe.srcdoc = html;
@@ -643,7 +851,7 @@ body{min-height:100dvh;background:#0f1117;color:#c8ccd4;font-family:system-ui,sa
 function size(){var f=document.getElementById('fit'),i=document.getElementById('inner');i.style.transform='scale('+(f.clientWidth/${bannerW})+')';}
 size();window.addEventListener('resize',size);
 if(window.ResizeObserver)new ResizeObserver(size).observe(document.getElementById('fit'));
-<\/script>
+<\\/script>
 </body>
 </html>`;
   const blob = new Blob([previewHTML], { type: 'text/html' });
@@ -676,7 +884,6 @@ function loadTemplate() {
   document.getElementById('toggleScrim').classList.add('active');
   document.getElementById('fBgType').value = 'image';
   onBgTypeChange();
-  // Load sample image
   fetch('/assets/desert-golden.png')
     .then(r => r.blob()).then(blob => {
       const reader = new FileReader();
