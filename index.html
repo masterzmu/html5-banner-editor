@@ -429,9 +429,9 @@ function onImageUpload(e) {
   reader.readAsDataURL(file);
 }
 function loadSampleImage() {
-  const candidates = ['assets/desert-golden.png', './assets/desert-golden.png', '/assets/desert-golden.png'];
+  // Prefer smaller .jpg first (Pages-friendly), then .png; relative paths only
+  const candidates = ['assets/desert-golden-ad.jpg', './assets/desert-golden-ad.jpg', 'assets/desert-golden.png', './assets/desert-golden.png'];
   (async () => {
-    let lastErr;
     for (const path of candidates) {
       try {
         const r = await fetch(path);
@@ -453,7 +453,7 @@ function loadSampleImage() {
         if (sel) { sel.value = 'image'; if (typeof onBgTypeChange === 'function') onBgTypeChange(); }
         updatePreview();
         return;
-      } catch (e) { lastErr = e; }
+      } catch (e) { /* try next candidate */ }
     }
     alert('Esimerkkikuva ei löydy. Avaa editori paikallisella palvelimella (python3 -m http.server) tai lataa oma kuva.');
   })();
@@ -884,26 +884,37 @@ function loadTemplate() {
   document.getElementById('toggleScrim').classList.add('active');
   document.getElementById('fBgType').value = 'image';
   onBgTypeChange();
-  fetch('/assets/desert-golden.png')
-    .then(r => r.blob()).then(blob => {
-      const reader = new FileReader();
-      reader.onload = ev => {
-        bgImageDataUri = ev.target.result;
-        const area = document.getElementById('imageUploadArea');
-        document.getElementById('imagePlaceholder').style.display = 'none';
-        let img = area.querySelector('img');
-        if (!img) { img = document.createElement('img'); area.appendChild(img); }
-        img.src = bgImageDataUri;
-        updatePreview();
-      };
-      reader.readAsDataURL(blob);
-    })
-    .catch(() => {
+  // Load background image — prefer .jpg (smaller), relative paths for Pages
+  (async () => {
+    const imgCandidates = ['assets/desert-golden-ad.jpg', './assets/desert-golden-ad.jpg', 'assets/desert-golden.png', './assets/desert-golden.png'];
+    let loaded = false;
+    for (const p of imgCandidates) {
+      try {
+        const r = await fetch(p);
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        const blob = await r.blob();
+        const reader = new FileReader();
+        await new Promise((res, rej) => {
+          reader.onload = () => { bgImageDataUri = reader.result; loaded = true; res(); };
+          reader.onerror = rej;
+          reader.readAsDataURL(blob);
+        });
+        if (loaded) break;
+      } catch(e) { /* try next */ }
+    }
+    if (loaded) {
+      const area = document.getElementById('imageUploadArea');
+      document.getElementById('imagePlaceholder').style.display = 'none';
+      let img = area.querySelector('img');
+      if (!img) { img = document.createElement('img'); area.appendChild(img); }
+      img.src = bgImageDataUri;
+    } else {
       document.getElementById('fBgType').value = 'color';
       document.getElementById('fBgColor1').value = '#1a1208';
       onBgTypeChange();
-      updatePreview();
-    });
+    }
+    updatePreview();
+  })();
   updatePreview();
 }
 
